@@ -1,0 +1,8 @@
+.idea
+data/
+assignment3
+*.csv
+*.png
+*.zip
+*.pdf
+TODO.md
