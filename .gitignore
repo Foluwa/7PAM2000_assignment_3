@@ -1,8 +1,11 @@
 .idea
 data/
+backup/
 assignment3
 *.csv
 *.png
 *.zip
 *.pdf
+notes.md
 TODO.md
+cluster_notes/
