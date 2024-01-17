@@ -6,7 +6,6 @@ __pycache__
 data/
 backup/
 assignment3
-*.csv
 *.png
 *.zip
 *.pdf
