@@ -15,25 +15,32 @@ from sklearn.cluster import KMeans
 from scipy.stats import linregress
 from scipy.optimize import curve_fit
 from pandas.plotting import scatter_matrix
-from sklearn.impute import SimpleImputer
-from sklearn.pipeline import make_pipeline
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import r2_score, silhouette_score, mean_squared_error
-from sklearn.preprocessing import MinMaxScaler, StandardScaler, PolynomialFeatures
+from sklearn.preprocessing import StandardScaler, PolynomialFeatures
+
 
 # Function definitions
-def series_dict(df):
+def series_dict(df_data):
     """
         Extract Series Code and Series Name
     """
-    data_dict = df[['Series Code', 'Series Name']].dropna().drop_duplicates().set_index('Series Code')['Series Name'].to_dict()
-    return data_dict
+    df_dict = df_data[['Series Code', 'Series Name']].dropna().drop_duplicates().set_index('Series Code')[
+        'Series Name'].to_dict()
+    return df_dict
+
 
 def linear_fit(x, a, b):
     """
         Define a simple linear fit function
     """
     return a * x + b
+
+
+def linear_model(x, m, c):
+    """ Linear formular """
+    return m * x + c
+
 
 def err_ranges(x, popt, pcov):
     """
@@ -45,42 +52,37 @@ def err_ranges(x, popt, pcov):
     y_lower = linear_fit(x, *(popt - perr))
     return y, y_lower, y_upper
 
-def logistic_function(x, L, k, x0):
+
+def logistic_function(x, ll, k, x0):
     """ Define the logistic function """
-    return L / (1 + np.exp(-k * (x - x0)))
+    return ll / (1 + np.exp(-k * (x - x0)))
+
 
 def convert_csv(filename):
     """ 
         Read the CSV file, convert to a dataframe and return the same dataframe 
     """
-    df = pd.read_csv(filename)
-    return df
-
-def series_dict(df):
-    """
-        Extract Series Code and Series Name
-    """
-    df_dict = df[['Series Code', 'Series Name']].dropna().drop_duplicates().set_index('Series Code')['Series Name'].to_dict()
-    return df_dict
+    df_data = pd.read_csv(filename)
+    return df_data
 
 
-def plot_scatter(data):
+def plot_scatter(df_data):
     """
        Function to draw scatter plot for Country population vs GNI (current USS)
-    """ 
-    series_a = data[data['Series Code'] == 'NY.GNP.MKTP.CD']
-    series_b = data[data['Series Code'] == 'SP.POP.TOTL']
+    """
+    series_a = df_data[df_data['Series Code'] == 'NY.GNP.MKTP.CD']
+    series_b = df_data[df_data['Series Code'] == 'SP.POP.TOTL']
 
     # Since the data is in wide format, we need to melt it to long format
-    series_a_melted = series_a.melt(id_vars=['Country Name', 'Country Code'], 
-                                                       value_vars=series_a.columns[4:], 
-                                                       var_name='Year', value_name='Series A')
-    series_b_melted = series_b.melt(id_vars=['Country Name', 'Country Code'], 
-                                                   value_vars=series_b.columns[4:], 
-                                                   var_name='Year', value_name='Series B')
+    series_a_melted = series_a.melt(id_vars=['Country Name', 'Country Code'],
+                                    value_vars=series_a.columns[4:],
+                                    var_name='Year', value_name='Series A')
+    series_b_melted = series_b.melt(id_vars=['Country Name', 'Country Code'],
+                                    value_vars=series_b.columns[4:],
+                                    var_name='Year', value_name='Series B')
 
     # Merge the two datasets on 'Country Code' and 'Year'
-    merged_data = pd.merge(series_a_melted, series_b_melted, 
+    merged_data = pd.merge(series_a_melted, series_b_melted,
                            on=['Country Code', 'Year'])
 
     # Convert 'Year' to datetime and extract the year for plotting
@@ -101,29 +103,34 @@ def plot_scatter(data):
     plt.xscale('log')
 
     # Set the number of ticks on the Y axis to 5
-    plt.yticks(np.linspace(merged_data['Series A'].min(), 
+    plt.yticks(np.linspace(merged_data['Series A'].min(),
                            merged_data['Series A'].max(), 5))
 
     return plt.show()
 
 
-def k_clustering(df, series_name_y, series_name_x, n_clusters):
+def k_clustering(df_data, series_name_y, series_name_x, n_clusters):
     """
         Function to perform clustering on dataframe and series axis x and y and clusters
-    """ 
-    series_a = df[df['Series Code'] == series_name_y]
-    series_b = df[df['Series Code'] == series_name_x]
+    """
+    series_a = df_data[df_data['Series Code'] == series_name_y]
+    series_b = df_data[df_data['Series Code'] == series_name_x]
 
     # Melt the dataframes
-    series_a_melted = series_a.melt(id_vars=['Country Name', 'Country Code'], 
-                                          value_vars=series_a.columns[4:], 
-                                          var_name='Year', value_name='Labor Force')
-    series_b_melted = series_b.melt(id_vars=['Country Name', 'Country Code'], 
-                                                  value_vars=series_b.columns[4:], 
-                                                  var_name='Year', value_name='Total Population')
+    # First Series
+    series_a_melted = series_a.melt(
+        id_vars=['Country Name', 'Country Code'],
+        value_vars=series_a.columns[4:],
+        var_name='Year', value_name='Labor Force')
+
+    # Second Series
+    series_b_melted = series_b.melt(
+        id_vars=['Country Name', 'Country Code'],
+        value_vars=series_b.columns[4:],
+        var_name='Year', value_name='Total Population')
 
     # Merge the two datasets on 'Country Code' and 'Year'
-    merged_data = pd.merge(series_a_melted, series_b_melted, 
+    merged_data = pd.merge(series_a_melted, series_b_melted,
                            on=['Country Code', 'Year'])
 
     # Convert 'Year' to datetime and extract the year for plotting
@@ -155,26 +162,28 @@ def k_clustering(df, series_name_y, series_name_x, n_clusters):
     return plt.show()
 
 
-def find_clusters_optimal_number(data, first_series, second_series):
-
+def find_clusters_optimal_number(df_data, first_series, second_series):
     """
-        Function to plot the optimal number of clusters based on the silhouette score 
+        Function to plot the optimal number of clusters based on the silhouette score
         for the selected series code
     """
-    series_a = data[data['Series Code'] == first_series]
-    series_b = data[data['Series Code'] == second_series]
+    series_a = df_data[df_data['Series Code'] == first_series]
+    series_b = df_data[df_data['Series Code'] == second_series]
 
     # Melt the dataframes
-    series_a_melted = series_a.melt(id_vars=['Country Name', 'Country Code'], 
-                                            value_vars=series_a.columns[4:], 
-                                            var_name='Year', value_name='CO2 Emissions')
-    series_b_melted = series_b.melt(id_vars=['Country Name', 'Country Code'], 
-                                                value_vars=series_b.columns[4:], 
-                                                var_name='Year', value_name='Total Population')
+    series_a_melted = series_a.melt(
+        id_vars=['Country Name', 'Country Code'],
+        value_vars=series_a.columns[4:],
+        var_name='Year', value_name='CO2 Emissions')
+
+    series_b_melted = series_b.melt(
+        id_vars=['Country Name', 'Country Code'],
+        value_vars=series_b.columns[4:],
+        var_name='Year', value_name='Total Population')
 
     # Merge the two datasets on 'Country Code' and 'Year'
-    merged_data = pd.merge(series_a_melted, series_b_melted, 
-                        on=['Country Code', 'Year'])
+    merged_data = pd.merge(series_a_melted, series_b_melted,
+                           on=['Country Code', 'Year'])
 
     # Convert 'Year' to datetime and extract the year for plotting
     merged_data['Year'] = pd.to_datetime(merged_data['Year'].str.extract('(\d{4})')[0]).dt.year
@@ -200,46 +209,47 @@ def find_clusters_optimal_number(data, first_series, second_series):
     # Find the number of clusters with the highest silhouette score
     optimal_n_clusters = range(2, 11)[silhouette_scores.index(max(silhouette_scores))]
 
-    print(f'Optimal number of clusters based on silhouette score for {first_series} and {second_series}:', optimal_n_clusters)
+    print(f'Optimal number of clusters based on silhouette score for {first_series} and {second_series}:',
+          optimal_n_clusters)
     return f'Optimal number of clusters based on silhouette score for {first_series} and {second_series}:, optimal_n_clusters'
 
 
-def draw_clustered_data(df, series_codes):
+def draw_clustered_data(df_data, series_codes):
     """
-        Function to plot clusterd data for selected series code.
+        Function to plot clustered data for selected series code.
     """
 
     # Filter the dataset for the selected series codes
-    filtered_data = df[df['Series Code'].isin(series_codes)]
+    filtered_data = df_data[df_data['Series Code'].isin(series_codes)]
 
     # Melt the dataframe
-    melted_data = filtered_data.melt(id_vars=['Country Name', 'Country Code', 'Series Code'], 
-                                     value_vars=filtered_data.columns[4:], 
+    melted_data = filtered_data.melt(id_vars=['Country Name', 'Country Code', 'Series Code'],
+                                     value_vars=filtered_data.columns[4:],
                                      var_name='Year', value_name='Value')
 
     # Pivot the table to have series codes as columns and years as rows
-    pivot_data = melted_data.pivot_table(index=['Country Name', 'Year'], columns='Series Code', values='Value', aggfunc='first')
+    pivot_data = melted_data.pivot_table(index=['Country Name', 'Year'], columns='Series Code', values='Value',
+                                         aggfunc='first')
 
     # Convert to numeric and drop NaNs
     pivot_data = pivot_data.apply(pd.to_numeric, errors='coerce')
     pivot_data.dropna(axis=1, how='all', inplace=True)
     pivot_data.dropna(axis=0, how='any', inplace=True)
-    
+
     # Generate the scatter matrix with color, title, and legend
     scatter_matrix(pivot_data, alpha=0.2, figsize=(30, 30), diagonal='kde', c='blue', marker='o')
 
     # Set a common title for the scatter matrix
-    plt.suptitle('Scatter Matrix for the selected features', y=0.92, fontsize=40)    
+    plt.suptitle('Scatter Matrix for the selected features', y=0.92, fontsize=40)
     return plt.show()
 
 
-
-def elbow_method(data):
+def elbow_method(df_data):
     """
-        Function to handle Elbow method 
+        Function to handle Elbow method
     """
 
-    preprocessed_data = data.replace('..', pd.NA)
+    preprocessed_data = df_data.replace('..', pd.NA)
 
     # Convert all year columns to numeric, errors='coerce' will replace errors with NaN
     for col in preprocessed_data.columns[4:]:
@@ -275,22 +285,23 @@ def elbow_method(data):
     plt.grid(True)
     return plt.show()
 
-                 
-def normal_range_line(df, series_a, series_b):
+
+def normal_range_line(df_data, series_a, series_b):
     """
         Function to plot specific series code
     """
 
     # Replace '..' with NaN to handle non-numeric values
-    df.replace('..', np.nan, inplace=True)
+    df_data.replace('..', np.nan, inplace=True)
 
-    filtered_data = df[(df['Series Code'] == series_a) | (df['Series Code'] == series_b)]
+    filtered_data = df_data[(df_data['Series Code'] == series_a) | (df_data['Series Code'] == series_b)]
 
     # Extract the year columns
     year_columns = [col for col in filtered_data.columns if 'YR' in col]
 
     # Melt the dataframe to have years and values in separate columns
-    melted_data = filtered_data.melt(id_vars=['Country Name', 'Series Code'], value_vars=year_columns, var_name='Year', value_name='Value')
+    melted_data = filtered_data.melt(id_vars=['Country Name', 'Series Code'], value_vars=year_columns, var_name='Year',
+                                     value_name='Value')
 
     # Drop rows with missing values
     melted_data.dropna(inplace=True)
@@ -321,8 +332,7 @@ def normal_range_line(df, series_a, series_b):
 
     # Filter the data for India and the series code 'NY.GNP.MKTP.CD'
     series_data = melted_data[(melted_data['Country Name'] == 'India') &
-                                   (melted_data['Series Code'] == series_a)]
-                                
+                              (melted_data['Series Code'] == series_a)]
 
     # Sort the data by year
     series_data.sort_values('Year', inplace=True)
@@ -336,6 +346,7 @@ def normal_range_line(df, series_a, series_b):
     plt.colorbar(label='Cluster Label')
     plt.grid(True)
     return plt.show()
+
 
 def polynomial_confi(df, country_code, series_code):
     """
@@ -356,7 +367,6 @@ def polynomial_confi(df, country_code, series_code):
     years = np.array([int(year[:4]) for year in country_data_numeric.columns]).reshape(-1, 1)
     values = country_data_numeric.values.reshape(-1, 1)
 
-
     # Calculate the linear regression parameters
     slope, intercept, r_value, p_value, std_err = linregress(years.ravel(), values.ravel())
 
@@ -374,7 +384,7 @@ def polynomial_confi(df, country_code, series_code):
     # Plotting the scatter plot again
     plt.figure(figsize=(10, 6))
     plt.scatter(years, values, color='blue', label='Actual Data')
-    
+
     # Fit a polynomial regression model
     degree = 3
     poly_features = PolynomialFeatures(degree=degree)
@@ -382,16 +392,16 @@ def polynomial_confi(df, country_code, series_code):
     poly_model = LinearRegression()
     poly_model.fit(X_poly, values)
     y_poly_pred = poly_model.predict(X_poly)
-    
+
     # Calculate R2 score for the polynomial model
     r2 = r2_score(values, y_poly_pred)
-
 
     # Plot the polynomial regression line
     plt.plot(years, y_poly_pred, color='red', label=f'Polynomial Degree {degree} Fit (R2={r2:.2f})')
 
     # Plot the confidence interval
-    plt.fill_between(years.ravel(), lower_bound.ravel(), upper_bound.ravel(), color='green', alpha=0.5, label='95% Confidence Interval')
+    plt.fill_between(years.ravel(), lower_bound.ravel(), upper_bound.ravel(), color='green', alpha=0.5,
+                     label='95% Confidence Interval')
 
     # Format the x-axis to show years without decimal points
     plt.gca().xaxis.set_major_locator(ticker.MaxNLocator(integer=True))
@@ -403,6 +413,7 @@ def polynomial_confi(df, country_code, series_code):
     plt.legend()
 
     return plt.show()
+
 
 def plot_prediction(data, series_code, country_name):
     """
@@ -440,9 +451,14 @@ def plot_prediction(data, series_code, country_name):
     plt.figure(figsize=(12, 8))
     plt.scatter(years_country, values_country, color='blue', label='Actual Data')
     plt.plot(years_country, y_poly_pred_country, color='red', label=f'Polynomial Degree {degree} Fit')
-    plt.fill_between(years_country.ravel(), (y_poly_pred_country - confidence_range_country).ravel(), (y_poly_pred_country + confidence_range_country).ravel(), color='pink', alpha=0.5, label='95% Confidence Interval')
-    plt.plot(future_years_country, future_values_country, color='green', linestyle='--', label='Predicted Future Values')
-    plt.fill_between(future_years_country.ravel(), (future_values_country - confidence_range_country).ravel(), (future_values_country + confidence_range_country).ravel(), color='yellow', alpha=0.5, label='Future 95% Confidence Interval')
+    plt.fill_between(years_country.ravel(), (y_poly_pred_country - confidence_range_country).ravel(),
+                     (y_poly_pred_country + confidence_range_country).ravel(), color='pink', alpha=0.5,
+                     label='95% Confidence Interval')
+    plt.plot(future_years_country, future_values_country, color='green', linestyle='--',
+             label='Predicted Future Values')
+    plt.fill_between(future_years_country.ravel(), (future_values_country - confidence_range_country).ravel(),
+                     (future_values_country + confidence_range_country).ravel(), color='yellow', alpha=0.5,
+                     label='Future 95% Confidence Interval')
     plt.gca().xaxis.set_major_locator(ticker.MaxNLocator(integer=True))
     plt.xlabel('Year')
     plt.ylabel('Gross National Product (Current US$)')
@@ -456,7 +472,6 @@ def plot_gni(df):
         Function to plot GNI for specific country
     """
 
-
     # Replace '..' with NaN to handle non-numeric values
     df.replace('..', np.nan, inplace=True)
 
@@ -467,7 +482,8 @@ def plot_gni(df):
     year_columns = [col for col in filtered_data.columns if 'YR' in col]
 
     # Melt the dataframe to have years and values in separate columns
-    melted_data = filtered_data.melt(id_vars=['Country Name', 'Series Code'], value_vars=year_columns, var_name='Year', value_name='Value')
+    melted_data = filtered_data.melt(id_vars=['Country Name', 'Series Code'], value_vars=year_columns, var_name='Year',
+                                     value_name='Value')
 
     # Drop rows with missing values
     melted_data.dropna(inplace=True)
@@ -497,14 +513,16 @@ def plot_gni(df):
     melted_data['Cluster'] = kmeans.labels_
 
     # Filter the data for India and the series code 'NY.GNP.MKTP.CD'
-    india_gnp_data = melted_data[(melted_data['Country Name'] == 'India') & (melted_data['Series Code'] == 'NY.GNP.MKTP.CD')]
+    india_gnp_data = melted_data[
+        (melted_data['Country Name'] == 'India') & (melted_data['Series Code'] == 'NY.GNP.MKTP.CD')]
 
     # Sort the data by year
     india_gnp_data.sort_values('Year', inplace=True)
 
     # Plot the cluster data for India across all years
     plt.figure(figsize=(14, 7))
-    plt.scatter(india_gnp_data['Year'], india_gnp_data['Value'], c=india_gnp_data['Cluster'], cmap='viridis', marker='o')
+    plt.scatter(india_gnp_data['Year'], india_gnp_data['Value'], c=india_gnp_data['Cluster'], cmap='viridis',
+                marker='o')
     plt.title('Data for India GNI (current US$) over time')
     plt.xlabel('Year')
     plt.ylabel('GNP (Current US$)')
@@ -512,11 +530,94 @@ def plot_gni(df):
     plt.grid(True)
     return plt.show()
 
+
+def plot_country_fit(clustered_data, country_name, series_code):
+    """ 
+        Filter the data for Country and the specified series code 
+    """
+    # country_gnp_data = clustered_data[(clustered_data['Country Name'] == 'India') &
+    #                             (clustered_data['Series Code'] == 'NY.GNP.MKTP.CD')]
+    country_gnp_data = clustered_data[(clustered_data['Country Name'] == 'India') &
+                                      (clustered_data['Series Code'] == 'NY.GNP.MKTP.CD')]
+
+    # Prepare the data for curve fitting
+    xdata = country_gnp_data['Year'].values
+    ydata = country_gnp_data['Value'].values
+
+    # Initial guess for the parameters
+    initial_guess = [max(ydata), 1, np.median(xdata)]
+
+    # Perform the curve fitting
+    params, params_covariance = curve_fit(logistic_function, xdata, ydata, p0=initial_guess)
+
+    # Output the parameters of the fitted curve
+    print('Estimated parameters for the logistic function:')
+    print('L (carrying capacity):', params[0])
+    print('k (growth rate):', params[1])
+    print('x0 (midpoint):', params[2])
+
+    # Plot the data and the fitted curve
+    plt.figure(figsize=(14, 7))
+    plt.scatter(xdata, ydata, label='Data')
+    plt.plot(xdata, logistic_function(xdata, *params), label='Fitted curve', color='red')
+    plt.title('Logistic Curve Fit for India GNP (NY.GNP.MKTP.CD)')
+    plt.xlabel('Year')
+    plt.ylabel('GNP (Current US$)')
+    plt.xticks(xdata.astype(int))
+    plt.legend()
+    plt.grid(True)
+    return plt.show()
+
+
+def compare_clusters(original_data):
+    """
+        Function to compare clusters from different series
+    """
+    # Filter the data for the series code 'NY.GNP.MKTP.CD' and 'EN.ATM.CO2E.KT'
+    filtered_data = original_data[
+        (original_data['Series Code'] == 'NY.GNP.MKTP.CD') | (original_data['Series Code'] == 'EN.ATM.CO2E.KT')]
+
+    # Extract the year columns
+    year_columns = [col for col in filtered_data.columns if 'YR' in col]
+
+    # Melt the dataframe to have years and values in separate columns
+    melted_data = filtered_data.melt(id_vars=['Country Name', 'Series Code'], value_vars=year_columns, var_name='Year',
+                                     value_name='Value')
+
+    # Drop rows with missing values
+    melted_data.dropna(inplace=True)
+
+    # Convert year to numerical format and values to float
+    melted_data['Year'] = melted_data['Year'].str.extract('(\d{4})').astype(int)
+    melted_data['Value'] = melted_data['Value'].astype(float)
+
+    # Prepare data for kmeans clustering
+    X = melted_data[['Year', 'Value']].values
+
+    # Determine the number of clusters using the elbow method
+    wcss = []
+    for i in range(1, 11):
+        kmeans = KMeans(n_clusters=i, init='k-means++', max_iter=300, n_init=10, random_state=0)
+        kmeans.fit(X)
+        wcss.append(kmeans.inertia_)
+
+    # Find the optimal number of clusters based on the elbow method
+    optimal_clusters = np.argmax(np.diff(wcss)) + 1
+
+    # Apply kmeans clustering with the optimal number of clusters
+    kmeans = KMeans(n_clusters=optimal_clusters, init='k-means++', max_iter=300, n_init=10, random_state=0)
+    kmeans.fit(X)
+
+    # Add the cluster labels to the dataframe
+    melted_data['Cluster'] = kmeans.labels_
+    return melted_data
+
+
 if __name__ == "__main__":
-    # Progam entry
+    # Program entry
     # Load data into pandas dataframe from CSV file
     data = convert_csv('./data.csv')
-    
+
     print('Dataframe Head:')
     data.head()
 
@@ -528,7 +629,59 @@ if __name__ == "__main__":
     print(data.describe())
 
     data_dict = series_dict(data)
-    data_dict['EG.ELC.ACCS.ZS']
+    # data_dict['EG.ELC.ACCS.ZS']
+
+    # Inspect the dataset to identify numerical columns and check for NaNs
+    print('Dataframe info:')
+    print(data.info())
+    print('First few rows:')
+    print(data.head())
+    print('Statistical summary:')
+    print(data.describe())
+
+    # Replace '..' with NaN to handle non-numeric values in numeric columns
+    # Convert all columns except 'Series Name', 'Series Code', 'Country Name', 'Country Code' to numeric
+    for col in data.columns[4:]:
+        data[col] = pd.to_numeric(data[col], errors='coerce')
+
+    # Check for NaN values in numerical features
+    print('NaN counts in numerical features:')
+    print(data.isna().sum())
+
+    # Drop rows with NaN values
+    print('Dropping rows with NaN values...')
+    df = data.dropna()
+    print('Rows dropped.')
+
+    # Normalize the data
+    print('Normalizing data...')
+    scaler = StandardScaler()
+    normalized_features = pd.DataFrame(scaler.fit_transform(df.iloc[:, 4:]), columns=df.columns[4:])
+    print('Data normalized.')
+
+    # Perform curve fitting
+    # For demonstration,fit the model to the first feature column
+    # Convert the index to a numpy array for the independent variable
+    x_data = np.array(normalized_features.index)
+    y_data = normalized_features.iloc[:, 0].values
+
+    # Curve fitting
+    params, covariance = curve_fit(linear_model, x_data, y_data)
+
+    # Extract the parameters
+    slope = params[0]
+    intercept = params[1]
+
+    # Display the parameters
+    print('Curve fitting parameters:')
+    print('Slope:', slope)
+    print('Intercept:', intercept)
+
+    """" Plot charts """
+
+    clustered_data = compare_clusters(data)
+
+    plot_country_fit(clustered_data, 'India', 'NY.GNP.MKTP.CD')
 
     # Plot Scatter plot
     plot_scatter(data)
@@ -536,11 +689,11 @@ if __name__ == "__main__":
     # Plot K -clustering
     k_clustering(data, 'SL.TLF.TOTL.IN', 'SP.POP.TOTL', 3)
 
-    series_codes = ['EG.ELC.ACCS.ZS', 'SP.POP.TOTL', 'SL.TLF.TOTL.IN', 'EN.ATM.METH.KT.CE', 
-                    'EN.ATM.CO2E.KT', 'AG.LND.ARBL.ZS','AG.LND.FRST.ZS', 'NY.GDP.TOTL.RT.ZS', 
+    series_codes = ['EG.ELC.ACCS.ZS', 'SP.POP.TOTL', 'SL.TLF.TOTL.IN', 'EN.ATM.METH.KT.CE',
+                    'EN.ATM.CO2E.KT', 'AG.LND.ARBL.ZS', 'AG.LND.FRST.ZS', 'NY.GDP.TOTL.RT.ZS',
                     'SP.URB.TOTL.IN.ZS', 'BG.GSR.NFSV.GD.ZS', 'NY.GDP.MKTP.KN', 'NY.GNP.MKTP.CD']
 
-    draw_clustered_data(data,series_codes)
+    draw_clustered_data(data, series_codes)
 
     # Plot elbow chart
     elbow_method(data)
