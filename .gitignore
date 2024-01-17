@@ -1,4 +1,8 @@
 .idea
+.ipynb_checkpoints
+.DS_Store
+__pycache__
+
 data/
 backup/
 assignment3
